@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  sessions     Session[]
+  bookings     Booking[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Room {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  floor        Int
+  capacity     Int
+  bookings     Booking[]
+  bookingSlots BookingSlot[]
+  createdAt    DateTime      @default(now())
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  title       String
+  startAt     DateTime
+  endAt       DateTime
+  cancelledAt DateTime?
+  roomId      String
+  userId      String
+  room        Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slotClaims  BookingSlot[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([roomId, startAt])
+  @@index([userId, startAt])
+  @@index([startAt, endAt])
+}
+
+model BookingSlot {
+  id        String   @id @default(cuid())
+  roomId    String
+  bookingId String
+  startAt   DateTime
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, startAt])
+  @@index([bookingId])
+}
