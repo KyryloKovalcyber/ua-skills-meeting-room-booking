@@ -4,8 +4,7 @@
   "private": true,
   "keywords": [
     "ua-skills",
-    "meeting-room-booking",
-    "tg-spec-gen-2-uk"
+    "meeting-room-booking"
   ],
   "scripts": {
     "dev": "next dev",
@@ -26,6 +25,7 @@
   "dependencies": {
     "@prisma/client": "6.19.3",
     "bcryptjs": "^3.0.2",
+    "dotenv": "^17.4.2",
     "luxon": "^3.7.2",
     "next": "16.2.11",
     "react": "19.2.0",
@@ -41,8 +41,5 @@
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vitest": "^4.0.0"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   }
 }
