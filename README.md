@@ -1,6 +1,9 @@
 # Roomly — Meeting Room Booking
 
-Конкурсний проєкт **UA Skills 2026 / Meeting Room Booking**. Це невеликий офісний вебзастосунок для перегляду тижневого розкладу переговорних, створення власних бронювань і безпечного скасування тільки своїх бронювань.
+[![CI](https://github.com/KyryloKovalcyber/ua-skills-meeting-room-booking/actions/workflows/ci.yml/badge.svg)](https://github.com/KyryloKovalcyber/ua-skills-meeting-room-booking/actions/workflows/ci.yml)
+
+Конкурсний проєкт **UA Skills 2026 / Meeting Room Booking** — full-stack вебзастосунок для перегляду тижневого розкладу переговорних кімнат, створення бронювань, щотижневих серій, безпечного скасування та in-app сповіщень.
+
 ## Screenshots
 
 ### Weekly schedule
@@ -16,60 +19,69 @@
 ![My bookings](docs/screenshots/my-bookings.png)
 
 ---
+
 ## Реалізовано
 
 ### Основні вимоги
 
-- реєстрація: ім'я, email, пароль;
-- email нормалізується на сервері через `trim().toLowerCase()`, тому ` Ivan@x.com ` і `ivan@x.com` — одна адреса;
-- пароль 8–72 символи та зберігається тільки як bcrypt-хеш;
-- серверні сесії в HttpOnly cookie, що переживають перезавантаження сторінки;
+- реєстрація: ім’я, email, пароль;
+- email нормалізується на сервері через `trim().toLowerCase()`;
+- пароль 8–72 символи й зберігається тільки як bcrypt-хеш;
+- серверні сесії в HttpOnly cookie переживають перезавантаження сторінки;
 - 6 переговорних кімнат із seed-даними;
-- власноруч створена тижнева CSS Grid-сітка без FullCalendar та інших готових календарів;
+- тижнева сітка створена вручну на CSS Grid — без FullCalendar;
 - 30-хвилинні слоти та навігація вперед/назад по тижнях;
-- назва бронювання та ім'я автора видно в розкладі;
+- назва бронювання та ім’я автора видимі в розкладі;
 - власні бронювання візуально відрізняються від чужих;
-- поточний день і поточний часовий слот виділені;
-- час в UI показується у часовому поясі браузера;
-- робочі години перевіряються сервером у `Europe/Kyiv`: 09:00–19:00;
-- час у БД зберігається як UTC DateTime;
-- серверна перевірка: майбутній час, межі 30 хвилин, тривалість 30–240 хвилин, робочі години, конфлікти;
-- сусідні бронювання дозволені: `10:00–11:00` та `11:00–12:00` не конфліктують;
-- скасування лише власного бронювання і через UI, і прямим API-запитом;
-- сторінка «Мої бронювання»: майбутні та минулі, сортування, пагінація минулих, перехід у потрібну кімнату/тиждень;
-- стани loading / empty / error;
-- помилки форм біля відповідних полів, submit блокується на час запиту;
-- підтвердження перед скасуванням;
-- unit-тести логіки перетинів та слотів;
-- `.env.example` і налаштування через env.
+- виділення поточного дня та поточного часового слота;
+- UI показує час у timezone браузера;
+- сервер перевіряє робочі години в `Europe/Kyiv` — 09:00–19:00;
+- час у БД зберігається як UTC `DateTime`;
+- серверна валідація: майбутній час, 30-хвилинні межі, тривалість 30–240 хв, робочі години, конфлікти;
+- сусідні бронювання дозволені: `10:00–11:00` і `11:00–12:00` не конфліктують;
+- скасування лише власних бронювань і через UI, і прямим API-запитом;
+- «Мої бронювання»: майбутні/минулі, сортування, пагінація минулих, перехід у потрібну кімнату/тиждень;
+- loading / empty / error / success states;
+- field-level form errors і блокування submit під час запиту;
+- confirmation dialog перед скасуванням;
+- `.env.example` і конфігурація через env;
+- unit та DB-backed route integration tests;
+- GitHub Actions CI.
 
-### Бонусні пункти
+### Бонусні можливості
 
-- **Docker Compose** — застосунок можна підняти однією командою;
-- **захист від гонки на рівні БД**;
+- **Docker Compose**;
+- **email verification у dev-режимі**: одноразовий token, у БД лише SHA-256 hash, TTL, verification-link друкується у server log;
+- **бронювання заборонене сервером до підтвердження email**;
+- **щотижневі recurring bookings** — 2–12 зустрічей у серії;
+- **атомарне створення серії**: якщо один occurrence конфліктує, не створюється жоден;
+- **скасування одного occurrence або всієї майбутньої серії**;
+- **DB-level race protection** через `UNIQUE(roomId, startAt)` у `BookingSlot`;
+- **concurrency integration test**: два одночасні запити на один слот → лише один переможець;
+- **end-of-booking notifications** за `NOTIFY_BEFORE_MINUTES`, якщо наступний слот тієї самої кімнати вже зайнятий;
+- **exactly-once notification record** через DB unique constraint;
 - **фільтр кімнат за місткістю**;
-- **повноцінний мобільний сценарій**: на вузькому екрані показується один день із перемикачем днів;
-- додаткові тести серверних правил часу.
-
-Не реалізовані бонуси: email verification, recurring bookings, end-of-booking notifications та повний HTTP integration-test suite. Вони не потрібні для основного функціоналу.
+- **mobile scenario**: один день на вузькому екрані з перемикачем днів.
 
 ---
 
 ## Стек
 
-- Next.js / React / TypeScript
+- Next.js 16 / React 19 / TypeScript
 - Prisma ORM 6
 - SQLite
 - Luxon
 - Zod
 - bcryptjs
 - Vitest
+- GitHub Actions
+- Docker Compose
 
-SQLite обрано свідомо: це дозволяє перевіряльнику запустити проєкт на чистій машині без окремого сервера БД. Файл бази не комітиться — він створюється міграціями.
+SQLite обрано свідомо: перевіряльнику не потрібен окремий сервер БД. Файли БД не комітяться.
 
 ---
 
-## Швидкий локальний запуск
+## Швидкий запуск на чистій машині
 
 ### Вимоги
 
@@ -79,24 +91,35 @@ SQLite обрано свідомо: це дозволяє перевіряльн
 ### 1. Встановити залежності
 
 ```bash
-npm install
+npm ci
 ```
 
-### 2. Підготувати `.env`, БД, міграції та seed
+### 2. Підготувати env, Prisma Client, БД, міграції та seed
 
 ```bash
 npm run setup:all
 ```
 
-Скрипт автоматично створить `.env` з `.env.example`, якщо `.env` ще немає, застосує міграції та додасть demo-дані.
+`setup:all`:
 
-### 3. Запустити тести
+1. створює `.env` з `.env.example`, тільки якщо `.env` ще немає;
+2. виконує `prisma generate`;
+3. застосовує всі migrations;
+4. запускає idempotent seed.
+
+### 3. Повна перевірка
 
 ```bash
-npm test
+npm run check
 ```
 
-### 4. Запустити dev-сервер
+Команда запускає:
+
+1. unit + integration tests;
+2. `tsc --noEmit`;
+3. production `next build`.
+
+### 4. Запустити застосунок
 
 ```bash
 npm run dev
@@ -117,69 +140,152 @@ alice@example.com / Password123
 bob@example.com   / Password123
 ```
 
-Seed ідемпотентний: повторний запуск не дублює кімнати й demo-бронювання.
+Обидва demo users уже email-verified.
 
 ---
 
-## Перевірка production build
+## Email verification у dev
 
-```bash
-npm run check
-```
+Після реєстрації новий користувач автоматично входить у систему, але **не може створювати бронювання**, доки не підтвердить email.
 
-Команда послідовно запускає:
-
-1. `npm test`
-2. `tsc --noEmit`
-3. `next build`
-
----
-
-## Docker Compose
-
-Якщо Docker встановлений:
-
-```bash
-docker compose up --build
-```
-
-Після запуску застосунок доступний на `http://localhost:3000`. SQLite-файл зберігається у Docker volume `meeting-data`.
-
----
-
-## Як працює перевірка перетинів
-
-Логічна перевірка використовує напіввідкриті інтервали `[start, end)`. Два інтервали конфліктують, якщо:
+У terminal/server log з’явиться рядок приблизно такого вигляду:
 
 ```text
-existingStart < newEnd && existingEnd > newStart
+[email-verification] user@example.com: http://localhost:3000/api/auth/verify?token=...
 ```
 
-Тому `10:00–11:00` і `11:00–12:00` не перетинаються, але `10:00–11:00` і `10:30–11:30` — перетинаються.
+Відкрийте це посилання у браузері. Token одноразовий та має TTL:
 
-Ця перевірка потрібна для зрозумілої відповіді користувачу, але сама по собі не захищає від одночасних запитів.
+```text
+EMAIL_VERIFICATION_TTL_MINUTES=30
+```
+
+У БД зберігається тільки SHA-256 hash verification token.
+
+---
+
+## Recurring bookings
+
+У booking dialog можна ввімкнути **«Повторювати щотижня»** та вибрати 2–12 зустрічей.
+
+Серія створюється атомарно:
+
+- сервер валідовує кожен occurrence;
+- перевіряє конфлікти для всієї серії;
+- створює всі occurrences в одній transaction;
+- якщо один occurrence конфліктує, transaction rollback не залишає частково створеної серії.
+
+Повтори будуються у timezone офісу, тому локальний час зустрічі зберігається навіть під час переходу DST.
+
+У «Мої бронювання» для серії можна скасувати:
+
+- лише вибрану зустріч;
+- усі активні майбутні occurrences серії.
 
 ---
 
 ## Захист від гонки
 
-Для кожного активного бронювання створюються записи `BookingSlot` на кожен 30-хвилинний відрізок. У таблиці є унікальний constraint:
+Логічна overlap-перевірка потрібна для зрозумілої відповіді користувачу, але фінальний захист забезпечує БД.
+
+Кожне активне бронювання створює `BookingSlot` для кожного 30-хвилинного відрізка. Таблиця має:
 
 ```text
-(roomId, startAt)
+UNIQUE(roomId, startAt)
 ```
 
-Наприклад, бронювання `10:00–11:30` займає слоти `10:00`, `10:30`, `11:00`. Якщо два користувачі одночасно намагаються забронювати інтервали, що перетинаються, обидва намагаються створити хоча б один однаковий `(roomId, startAt)`. База дозволяє лише один запис, а другий запит отримує conflict і повертає HTTP 409.
-
-При скасуванні бронювання його `BookingSlot` видаляються в транзакції, після чого час знову доступний. Саме бронювання не видаляється фізично — воно отримує `cancelledAt`.
+Тому два конкурентні запити не можуть обидва успішно зайняти один і той самий слот.
 
 ---
 
-## Часові пояси
+## Перетини інтервалів
 
-Клієнт визначає IANA timezone через браузер. Тижневі робочі слоти створюються відносно офісного поясу `Europe/Kyiv`, перетворюються в UTC і лише потім відображаються в часовому поясі користувача.
+Використовуються напіввідкриті інтервали `[start, end)`:
 
-Наприклад, одна й та сама абсолютна подія може відображатися як 10:00 у Києві та 09:00 у користувача з іншим часовим поясом. Сервер завжди конвертує отримані UTC timestamps назад у `Europe/Kyiv` перед перевіркою робочих годин.
+```text
+existingStart < newEnd && existingEnd > newStart
+```
+
+Отже:
+
+- `10:00–11:00` + `11:00–12:00` — дозволено;
+- `10:00–11:00` + `10:30–11:30` — конфлікт.
+
+---
+
+## UTC і часові пояси
+
+Робочі слоти формуються відносно `Europe/Kyiv`, конвертуються у UTC для transport/storage та відображаються у IANA timezone браузера.
+
+Сервер перед перевіркою робочих годин конвертує UTC назад у timezone офісу.
+
+Recurring occurrences додаються календарними тижнями саме в office timezone, що зберігає wall-clock meeting time під час DST transitions.
+
+---
+
+## End-of-booking notifications
+
+Frontend опитує `/api/notifications` раз на 30 секунд. Сервер перевіряє активні бронювання користувача, які завершуються в межах:
+
+```text
+NOTIFY_BEFORE_MINUTES=10
+```
+
+Notification створюється лише якщо наступне **активне** бронювання тієї самої кімнати починається точно в момент завершення поточного.
+
+Exactly-once persistence забезпечує unique constraint:
+
+```text
+(userId, currentBookingId, type)
+```
+
+Якщо поточне або наступне бронювання скасоване до генерації notification, сповіщення не створюється. Cancellation також прибирає ще неактуальні notification records, пов’язані зі скасованими bookings.
+
+---
+
+## Окрема тестова БД
+
+Integration tests не використовують `prisma/dev.db`.
+
+Vitest примусово використовує:
+
+```text
+file:./test.db
+```
+
+`tests/global-setup.ts` перед suite видаляє стару test DB та застосовує migrations. Це робить DB-backed tests відтворюваними й не забруднює локальні demo-дані.
+
+---
+
+## CI
+
+`.github/workflows/ci.yml` запускається на push до `main` і на pull request.
+
+Pipeline:
+
+```text
+npm ci
+npm run setup:all
+npm run check
+```
+
+Тобто CI перевіряє той самий clean-machine workflow, який описаний у README.
+
+---
+
+## Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Після запуску:
+
+```text
+http://localhost:3000
+```
+
+SQLite зберігається у Docker volume `meeting-data`.
 
 ---
 
@@ -190,18 +296,23 @@ POST   /api/auth/register
 POST   /api/auth/login
 POST   /api/auth/logout
 GET    /api/auth/session
+POST   /api/auth/verification/request
+GET    /api/auth/verify?token=...
 
 GET    /api/rooms?minCapacity=8
 GET    /api/rooms/:roomId/bookings?from=...&to=...
 
 POST   /api/bookings
-DELETE /api/bookings/:bookingId
+DELETE /api/bookings/:bookingId?scope=single|series
 
 GET    /api/me/bookings?type=upcoming
 GET    /api/me/bookings?type=past&page=1
+
+GET    /api/notifications
+PATCH  /api/notifications/:notificationId
 ```
 
-Усі правила бронювання перевіряються на сервері. Frontend-валідація використовується тільки для UX.
+Server-side validation є джерелом істини. Frontend validation використовується для UX.
 
 ---
 
@@ -209,25 +320,36 @@ GET    /api/me/bookings?type=past&page=1
 
 ```text
 src/
-  app/                  Next.js pages + API Route Handlers
-  components/           UI-компоненти
-  lib/                  auth, Prisma, HTTP errors, config
-  modules/bookings/     схеми та бізнес-правила бронювання
+  app/                       Next.js pages + API Route Handlers
+  components/                UI
+  lib/                       auth, env, Prisma, verification
+  modules/bookings/          booking rules + schemas
+  modules/notifications/     notification generation
 prisma/
-  migrations/           міграції БД
-  schema.prisma         data model
-  seed.ts               demo-data
+  migrations/                versioned database migrations
+  schema.prisma
+  seed.ts
 tests/
-  intervals.test.ts     unit tests
+  global-setup.ts            isolated SQLite test DB
+  intervals.test.ts          unit tests
+  api-bookings.integration.test.ts
+  email-verification.integration.test.ts
+  notifications.integration.test.ts
 scripts/
-  setup.mjs             локальний one-command setup
+  setup.mjs                  one-command setup
+.github/workflows/
+  ci.yml                     CI quality gate
 ```
 
 ---
 
-## Важливі рішення
+## Ключові рішення
 
-- **Server-side validation є джерелом істини.** UI не може обійти правила прямим API-запитом.
-- **Сесійний токен не зберігається в БД у відкритому вигляді.** У БД зберігається SHA-256 hash токена; сам токен — тільки в HttpOnly cookie.
-- **Soft cancellation.** Історія бронювання зберігається через `cancelledAt`, а race-protection slots звільняються.
-- **Без готового календарного компонента.** Сітка зроблена вручну на CSS Grid.
+- **Server validation is authoritative.**
+- **Session token**: у БД тільки SHA-256 hash; raw token лише в HttpOnly cookie.
+- **Verification token**: у БД тільки SHA-256 hash; одноразовий + TTL.
+- **Soft cancellation**: booking history зберігається через `cancelledAt`; slot claims звільняються.
+- **Race protection**: DB unique constraint, а не лише `findFirst`.
+- **Recurring atomicity**: одна transaction для всієї серії.
+- **Exactly-once notification**: DB unique constraint.
+- **No calendar library**: calendar grid побудований вручну на CSS Grid.
