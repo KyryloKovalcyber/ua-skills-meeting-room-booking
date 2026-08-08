@@ -2,5 +2,11 @@ node_modules
 .next
 .git
 .env
-prisma/dev.db
+.env.*
+!.env.example
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-shm
+prisma/*.db-wal
+coverage
 *.log

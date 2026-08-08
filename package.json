@@ -10,16 +10,15 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "prisma generate && vitest run",
+    "test:watch": "prisma generate && vitest",
     "typecheck": "tsc --noEmit",
     "check": "npm test && npm run typecheck && npm run build",
-    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "setup": "prisma migrate deploy && tsx prisma/seed.ts",
+    "setup": "node scripts/setup.mjs",
     "setup:all": "node scripts/setup.mjs"
   },
   "dependencies": {
@@ -41,5 +40,8 @@
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=24 <25"
   }
 }

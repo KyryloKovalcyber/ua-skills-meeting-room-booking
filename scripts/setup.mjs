@@ -1,23 +1,16 @@
-import { copyFileSync, existsSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
 if (!existsSync(".env")) {
   copyFileSync(".env.example", ".env");
   console.log("Created .env from .env.example");
-} else {
-  const existing = readFileSync(".env", "utf8");
-
-  if (/DATABASE_URL\s*=\s*["']?postgres/i.test(existing)) {
-    copyFileSync(".env", ".env.postgres-backup");
-    copyFileSync(".env.example", ".env");
-    console.log("Replaced old PostgreSQL .env with SQLite config");
-  }
 }
 
 function run(command) {
   const result = spawnSync(command, {
     stdio: "inherit",
-    shell: process.platform === "win32",
+    shell: true,
+    env: process.env,
   });
 
   if (result.error) {
@@ -30,6 +23,7 @@ function run(command) {
   }
 }
 
+run("npx prisma generate");
 run("npx prisma migrate deploy");
 run("npx prisma db seed");
 
