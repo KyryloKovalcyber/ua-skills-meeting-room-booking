@@ -7,5 +7,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const user = await currentUser();
   if (!user) redirect("/login");
 
-  return <AppShell user={user}>{children}</AppShell>;
+  return (
+    <AppShell
+      user={{
+        name: user.name,
+        email: user.email,
+        emailVerified: Boolean(user.emailVerifiedAt),
+      }}
+    >
+      {children}
+    </AppShell>
+  );
 }

@@ -53,7 +53,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       {mode === "register" && (
         <label>
           Ім’я
-          <input name="name" required autoComplete="name" aria-invalid={Boolean(fields.name)} />
+          <input name="name" required maxLength={80} autoComplete="name" aria-invalid={Boolean(fields.name)} />
           {fields.name && <small className="field-error">{fields.name}</small>}
         </label>
       )}

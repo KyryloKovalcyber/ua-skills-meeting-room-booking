@@ -2,13 +2,15 @@
 
 import { DateTime } from "luxon";
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-const OFFICE_TZ = "Europe/Kyiv";
-const OFFICE_OPEN_HOUR = 9;
-const OFFICE_CLOSE_HOUR = 19;
-const SLOT_MINUTES = 30;
-const SLOT_COUNT = ((OFFICE_CLOSE_HOUR - OFFICE_OPEN_HOUR) * 60) / SLOT_MINUTES;
+type OfficeConfig = {
+  timeZone: string;
+  openHour: number;
+  closeHour: number;
+  slotMinutes: number;
+  maxBookingMinutes: number;
+};
 
 type Room = { id: string; name: string; floor: number; capacity: number };
 type Booking = {
@@ -16,36 +18,49 @@ type Booking = {
   title: string;
   startAt: string;
   endAt: string;
+  seriesId?: string | null;
   user: { id: string; name: string };
 };
 type ApiError = { error?: { message?: string; fields?: Record<string, string> } };
 
-function parseOfficeWeek(value?: string) {
+function parseOfficeWeek(value: string | undefined, timeZone: string) {
   if (value) {
-    const parsed = DateTime.fromISO(value, { zone: OFFICE_TZ });
+    const parsed = DateTime.fromISO(value, { zone: timeZone });
     if (parsed.isValid) return parsed.startOf("week").startOf("day");
   }
-  return DateTime.now().setZone(OFFICE_TZ).startOf("week").startOf("day");
+  return DateTime.now().setZone(timeZone).startOf("week").startOf("day");
 }
 
 export function Schedule({
   userId,
+  emailVerified,
   initialRoomId,
   initialWeek,
+  initialNotice,
+  initialError,
+  officeConfig,
 }: {
   userId: string;
+  emailVerified: boolean;
   initialRoomId?: string;
   initialWeek?: string;
+  initialNotice?: string;
+  initialError?: string;
+  officeConfig: OfficeConfig;
 }) {
+  const { timeZone: officeTimeZone, openHour, closeHour, slotMinutes } = officeConfig;
+  const slotCount = ((closeHour - openHour) * 60) / slotMinutes;
   const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomId, setRoomId] = useState(initialRoomId ?? "");
-  const [week, setWeek] = useState(() => parseOfficeWeek(initialWeek));
+  const [week, setWeek] = useState(() => parseOfficeWeek(initialWeek, officeTimeZone));
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [capacity, setCapacity] = useState(0);
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState(initialNotice ?? "");
+  const [verificationError, setVerificationError] = useState(initialError ?? "");
   const [selectedStart, setSelectedStart] = useState<string | null>(null);
   const [mobileDay, setMobileDay] = useState(0);
 
@@ -55,21 +70,21 @@ export function Schedule({
   );
 
   const dayHeaders = useMemo(
-    () => officeDays.map((day) => day.set({ hour: OFFICE_OPEN_HOUR }).toUTC().setZone(userTz)),
-    [officeDays, userTz],
+    () => officeDays.map((day) => day.set({ hour: openHour }).toUTC().setZone(userTz)),
+    [officeDays, openHour, userTz],
   );
 
   const timeLabels = useMemo(
-    () => Array.from({ length: SLOT_COUNT }, (_, row) =>
+    () => Array.from({ length: slotCount }, (_, row) =>
       week
         .plus({ days: 2 })
-        .set({ hour: OFFICE_OPEN_HOUR, minute: 0, second: 0, millisecond: 0 })
-        .plus({ minutes: row * SLOT_MINUTES })
+        .set({ hour: openHour, minute: 0, second: 0, millisecond: 0 })
+        .plus({ minutes: row * slotMinutes })
         .toUTC()
         .setZone(userTz)
         .toFormat("HH:mm"),
     ),
-    [week, userTz],
+    [openHour, slotCount, slotMinutes, userTz, week],
   );
 
   useEffect(() => {
@@ -144,16 +159,16 @@ export function Schedule({
     if (response.ok) setBookings(data.bookings ?? []);
   }
 
-  async function createBooking(title: string, endAt: string) {
+  async function createBooking(title: string, endAt: string, recurrenceCount: number) {
     if (!selectedStart) return { ok: false, error: "Не вибрано початок бронювання." };
 
     try {
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, roomId, startAt: selectedStart, endAt }),
+        body: JSON.stringify({ title, roomId, startAt: selectedStart, endAt, recurrenceCount }),
       });
-      const data: ApiError = await response.json();
+      const data: ApiError & { recurrenceCount?: number } = await response.json();
 
       if (!response.ok) {
         return {
@@ -165,6 +180,9 @@ export function Schedule({
 
       setSelectedStart(null);
       await reloadSchedule();
+      const created = data.recurrenceCount ?? recurrenceCount;
+      setNotice(created > 1 ? `Створено серію з ${created} бронювань.` : "Бронювання створено.");
+      window.setTimeout(() => setNotice(""), 4500);
       return { ok: true };
     } catch {
       return { ok: false, error: "Сервер недоступний. Спробуйте ще раз." };
@@ -172,7 +190,7 @@ export function Schedule({
   }
 
   const now = DateTime.now();
-  const timezoneDiffers = userTz !== OFFICE_TZ;
+  const timezoneDiffers = userTz !== officeTimeZone;
 
   return (
     <main className="page">
@@ -182,7 +200,7 @@ export function Schedule({
           <h1>Переговорні кімнати</h1>
           <p className="muted timezone-note">
             Час у вашому поясі: <b>{userTz}</b>.
-            {timezoneDiffers && <> Офіс: <b>{OFFICE_TZ}</b> (09:00–19:00).</>}
+            {timezoneDiffers && <> Офіс: <b>{officeTimeZone}</b> ({String(openHour).padStart(2, "0")}:00–{String(closeHour).padStart(2, "0")}:00).</>}
           </p>
         </div>
 
@@ -212,7 +230,7 @@ export function Schedule({
 
           <div className="week-nav" aria-label="Навігація тижнями">
             <button className="ghost icon-button" onClick={() => setWeek((value) => value.minus({ weeks: 1 }))} aria-label="Попередній тиждень">←</button>
-            <button className="ghost" onClick={() => setWeek(parseOfficeWeek())}>Сьогодні</button>
+            <button className="ghost" onClick={() => setWeek(parseOfficeWeek(undefined, officeTimeZone))}>Сьогодні</button>
             <button className="ghost icon-button" onClick={() => setWeek((value) => value.plus({ weeks: 1 }))} aria-label="Наступний тиждень">→</button>
           </div>
         </div>
@@ -220,7 +238,13 @@ export function Schedule({
 
       <div className="week-caption">
         <strong>{week.toFormat("dd.LL")}–{week.plus({ days: 6 }).toFormat("dd.LL.yyyy")}</strong>
-        <span>Робочий тиждень офісу · {OFFICE_TZ}</span>
+        <span>Робочий тиждень офісу · {officeTimeZone}</span>
+      </div>
+
+      <div className="calendar-legend" aria-label="Легенда розкладу">
+        <span><i className="legend-swatch mine-swatch" />Моє бронювання</span>
+        <span><i className="legend-swatch other-swatch" />Інше бронювання</span>
+        <span><i className="legend-line" />Поточний час</span>
       </div>
 
       <div className="mobile-day-tabs" aria-label="Дні тижня">
@@ -235,6 +259,13 @@ export function Schedule({
         ))}
       </div>
 
+      {notice && <div className="success-notice" role="status">{notice}</div>}
+      {verificationError && (
+        <div className="state error compact-state" role="alert">
+          {verificationError}
+          <button className="ghost inline-action" onClick={() => setVerificationError("")}>Закрити</button>
+        </div>
+      )}
       {error && <div className="state error" role="alert">{error}</div>}
 
       {loadingRooms ? (
@@ -262,59 +293,59 @@ export function Schedule({
               </div>
             ))}
 
-            {Array.from({ length: SLOT_COUNT }, (_, row) => {
-              return (
-                <div className="row" key={row}>
-                  <div className="time">{timeLabels[row]}</div>
-                  {officeDays.map((officeDay, dayIndex) => {
-                    const slotStart = officeDay
-                      .set({ hour: OFFICE_OPEN_HOUR, minute: 0, second: 0, millisecond: 0 })
-                      .plus({ minutes: row * SLOT_MINUTES })
-                      .toUTC();
-                    const slotEnd = slotStart.plus({ minutes: SLOT_MINUTES });
-                    const booking = bookings.find((item) => {
-                      const start = DateTime.fromISO(item.startAt, { zone: "utc" });
-                      const end = DateTime.fromISO(item.endAt, { zone: "utc" });
-                      return start < slotEnd && end > slotStart;
-                    });
-                    const bookingStart = booking ? DateTime.fromISO(booking.startAt, { zone: "utc" }) : null;
-                    const bookingEnd = booking ? DateTime.fromISO(booking.endAt, { zone: "utc" }) : null;
-                    const isFirst = Boolean(bookingStart?.equals(slotStart));
-                    const isLast = Boolean(bookingEnd?.equals(slotEnd));
-                    const isCurrent = now >= slotStart && now < slotEnd;
-                    const isPast = slotStart <= now;
+            {Array.from({ length: slotCount }, (_, row) => (
+              <div className="row" key={row}>
+                <div className="time">{timeLabels[row]}</div>
+                {officeDays.map((officeDay, dayIndex) => {
+                  const slotStart = officeDay
+                    .set({ hour: openHour, minute: 0, second: 0, millisecond: 0 })
+                    .plus({ minutes: row * slotMinutes })
+                    .toUTC();
+                  const slotEnd = slotStart.plus({ minutes: slotMinutes });
+                  const booking = bookings.find((item) => {
+                    const start = DateTime.fromISO(item.startAt, { zone: "utc" });
+                    const end = DateTime.fromISO(item.endAt, { zone: "utc" });
+                    return start < slotEnd && end > slotStart;
+                  });
+                  const bookingStart = booking ? DateTime.fromISO(booking.startAt, { zone: "utc" }) : null;
+                  const bookingEnd = booking ? DateTime.fromISO(booking.endAt, { zone: "utc" }) : null;
+                  const isFirst = Boolean(bookingStart?.equals(slotStart));
+                  const isLast = Boolean(bookingEnd?.equals(slotEnd));
+                  const isCurrent = now >= slotStart && now < slotEnd;
+                  const isPast = slotStart <= now;
 
-                    return (
-                      <button
-                        className={[
-                          "slot",
-                          booking ? "busy" : "",
-                          booking?.user.id === userId ? "mine" : "",
-                          isFirst ? "booking-start" : "",
-                          isLast ? "booking-end" : "",
-                          isCurrent ? "current-time" : "",
-                          dayIndex !== mobileDay ? "mobile-hidden" : "",
-                        ].filter(Boolean).join(" ")}
-                        key={`${row}-${dayIndex}`}
-                        disabled={Boolean(booking) || isPast}
-                        onClick={() => setSelectedStart(slotStart.toISO())}
-                        aria-label={booking
-                          ? `${booking.title}, ${booking.user.name}`
+                  return (
+                    <button
+                      className={[
+                        "slot",
+                        booking ? "busy" : "",
+                        booking?.user.id === userId ? "mine" : "",
+                        isFirst ? "booking-start" : "",
+                        isLast ? "booking-end" : "",
+                        isCurrent ? "current-time" : "",
+                        dayIndex !== mobileDay ? "mobile-hidden" : "",
+                      ].filter(Boolean).join(" ")}
+                      key={`${row}-${dayIndex}`}
+                      disabled={Boolean(booking) || isPast || !emailVerified}
+                      onClick={() => setSelectedStart(slotStart.toISO())}
+                      aria-label={booking
+                        ? `${booking.title}, ${booking.user.name}`
+                        : !emailVerified
+                          ? `Вільно, ${slotStart.setZone(userTz).toFormat("dd.LL HH:mm")}. Потрібно підтвердити email.`
                           : `Вільно, ${slotStart.setZone(userTz).toFormat("dd.LL HH:mm")}`}
-                      >
-                        {isCurrent && <i className="now-dot" aria-hidden="true" />}
-                        {isFirst && booking && (
-                          <span>
-                            <strong>{booking.title}</strong>
-                            <small>{booking.user.name}</small>
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                    >
+                      {isCurrent && <i className="now-dot" aria-hidden="true" />}
+                      {isFirst && booking && (
+                        <span>
+                          <strong>{booking.title}</strong>
+                          <small>{booking.user.name}</small>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -323,6 +354,7 @@ export function Schedule({
         <BookingDialog
           startAt={selectedStart}
           userTz={userTz}
+          officeConfig={officeConfig}
           onClose={() => setSelectedStart(null)}
           onCreate={createBooking}
         />
@@ -334,29 +366,55 @@ export function Schedule({
 function BookingDialog({
   startAt,
   userTz,
+  officeConfig,
   onClose,
   onCreate,
 }: {
   startAt: string;
   userTz: string;
+  officeConfig: OfficeConfig;
   onClose: () => void;
   onCreate: (
     title: string,
     endAt: string,
+    recurrenceCount: number,
   ) => Promise<{ ok: boolean; error?: string; fields?: Record<string, string> }>;
 }) {
   const startUtc = DateTime.fromISO(startAt, { zone: "utc" });
-  const officeStart = startUtc.setZone(OFFICE_TZ);
-  const officeClose = officeStart.startOf("day").set({ hour: OFFICE_CLOSE_HOUR });
-  const maxEnd = DateTime.min(startUtc.plus({ hours: 4 }), officeClose.toUTC());
-  const optionCount = Math.max(1, Math.floor(maxEnd.diff(startUtc, "minutes").minutes / SLOT_MINUTES));
-  const options = Array.from({ length: optionCount }, (_, index) => startUtc.plus({ minutes: (index + 1) * SLOT_MINUTES }));
+  const officeStart = startUtc.setZone(officeConfig.timeZone);
+  const officeClose = officeStart.startOf("day").set({ hour: officeConfig.closeHour });
+  const maxEnd = DateTime.min(
+    startUtc.plus({ minutes: officeConfig.maxBookingMinutes }),
+    officeClose.toUTC(),
+  );
+  const optionCount = Math.max(
+    1,
+    Math.floor(maxEnd.diff(startUtc, "minutes").minutes / officeConfig.slotMinutes),
+  );
+  const options = Array.from(
+    { length: optionCount },
+    (_, index) => startUtc.plus({ minutes: (index + 1) * officeConfig.slotMinutes }),
+  );
 
   const [title, setTitle] = useState("");
   const [endAt, setEndAt] = useState(options[0]?.toISO() ?? startUtc.plus({ minutes: 30 }).toISO());
+  const [repeatWeekly, setRepeatWeekly] = useState(false);
+  const [recurrenceCount, setRecurrenceCount] = useState(4);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    titleRef.current?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busy) onClose();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [busy, onClose]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -364,7 +422,7 @@ function BookingDialog({
     setError("");
     setFields({});
 
-    const result = await onCreate(title, endAt ?? "");
+    const result = await onCreate(title, endAt ?? "", repeatWeekly ? recurrenceCount : 1);
     if (!result.ok) {
       setError(result.error ?? "Не вдалося створити бронювання.");
       setFields(result.fields ?? {});
@@ -374,10 +432,18 @@ function BookingDialog({
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
-      <form className="modal" onMouseDown={(event) => event.stopPropagation()} onSubmit={submit} noValidate>
+      <form
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="booking-dialog-title"
+        onMouseDown={(event) => event.stopPropagation()}
+        onSubmit={submit}
+        noValidate
+      >
         <div>
           <span className="eyebrow">НОВЕ БРОНЮВАННЯ</span>
-          <h2>Забронювати кімнату</h2>
+          <h2 id="booking-dialog-title">Забронювати кімнату</h2>
           <p className="muted">
             {startUtc.setZone(userTz).toFormat("cccc, dd LLLL · HH:mm")} · {userTz}
           </p>
@@ -386,7 +452,7 @@ function BookingDialog({
         <label>
           Назва
           <input
-            autoFocus
+            ref={titleRef}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             maxLength={100}
@@ -407,6 +473,32 @@ function BookingDialog({
             ))}
           </select>
         </label>
+
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={repeatWeekly}
+            onChange={(event) => setRepeatWeekly(event.target.checked)}
+          />
+          <span>Повторювати щотижня</span>
+        </label>
+
+        {repeatWeekly && (
+          <label>
+            Кількість зустрічей у серії
+            <select
+              value={recurrenceCount}
+              onChange={(event) => setRecurrenceCount(Number(event.target.value))}
+            >
+              {Array.from({ length: 11 }, (_, index) => index + 2).map((count) => (
+                <option key={count} value={count}>{count}</option>
+              ))}
+            </select>
+            <small className="muted">
+              Уся серія створюється атомарно: при одному конфлікті не створюється нічого.
+            </small>
+          </label>
+        )}
 
         {error && <p className="form-error" role="alert">{error}</p>}
 

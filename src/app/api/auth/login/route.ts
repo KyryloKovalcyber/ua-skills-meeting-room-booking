@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     }
 
     await createSession(user.id);
-    return ok({ user: { id: user.id, name: user.name, email: user.email } });
+    return ok({ user: { id: user.id, name: user.name, email: user.email, emailVerified: Boolean(user.emailVerifiedAt) } });
   } catch (error) {
     return fail(error);
   }

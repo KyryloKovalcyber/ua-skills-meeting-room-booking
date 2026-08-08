@@ -8,14 +8,17 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  name         String
-  email        String    @unique
-  passwordHash String
-  sessions     Session[]
-  bookings     Booking[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                 String                   @id @default(cuid())
+  name               String
+  email              String                   @unique
+  passwordHash       String
+  emailVerifiedAt    DateTime?
+  sessions           Session[]
+  bookings           Booking[]
+  verificationTokens EmailVerificationToken[]
+  notifications      Notification[]
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 }
 
 model Session {
@@ -28,6 +31,18 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 model Room {
@@ -46,6 +61,7 @@ model Booking {
   startAt     DateTime
   endAt       DateTime
   cancelledAt DateTime?
+  seriesId    String?
   roomId      String
   userId      String
   room        Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -57,6 +73,7 @@ model Booking {
   @@index([roomId, startAt])
   @@index([userId, startAt])
   @@index([startAt, endAt])
+  @@index([seriesId])
 }
 
 model BookingSlot {
@@ -69,4 +86,21 @@ model BookingSlot {
 
   @@unique([roomId, startAt])
   @@index([bookingId])
+}
+
+model Notification {
+  id               String   @id @default(cuid())
+  userId           String
+  currentBookingId String
+  nextBookingId    String
+  type             String
+  message          String
+  readAt           DateTime?
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, currentBookingId, type])
+  @@index([userId, readAt, createdAt])
+  @@index([currentBookingId])
+  @@index([nextBookingId])
 }

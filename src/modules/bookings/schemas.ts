@@ -5,4 +5,5 @@ export const createBookingSchema = z.object({
   roomId: z.string().min(1, "Оберіть кімнату."),
   startAt: z.string().datetime(),
   endAt: z.string().datetime(),
+  recurrenceCount: z.coerce.number().int().min(1).max(12).default(1),
 });

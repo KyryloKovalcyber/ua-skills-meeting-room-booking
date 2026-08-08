@@ -19,6 +19,16 @@ export function bookingSlotStarts(startAt: Date, endAt: Date) {
   return result;
 }
 
+export function buildWeeklyOccurrences(startAt: Date, endAt: Date, count: number) {
+  const localStart = DateTime.fromJSDate(startAt, { zone: "utc" }).setZone(OFFICE_TIME_ZONE);
+  const localEnd = DateTime.fromJSDate(endAt, { zone: "utc" }).setZone(OFFICE_TIME_ZONE);
+
+  return Array.from({ length: count }, (_, index) => ({
+    startAt: localStart.plus({ weeks: index }).toUTC().toJSDate(),
+    endAt: localEnd.plus({ weeks: index }).toUTC().toJSDate(),
+  }));
+}
+
 export function validateBookingTimes(startAt: Date, endAt: Date, now = new Date()) {
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
     throw new AppError("INVALID_TIME", "Некоректна дата або час.");

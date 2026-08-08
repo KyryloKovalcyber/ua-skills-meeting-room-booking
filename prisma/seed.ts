@@ -15,16 +15,27 @@ function slotStarts(startAt: Date, endAt: Date) {
 
 async function main() {
   const passwordHash = await bcrypt.hash("Password123", 12);
+  const verifiedAt = new Date();
 
   const alice = await prisma.user.upsert({
     where: { email: "alice@example.com" },
-    update: { name: "Alice Johnson", passwordHash },
-    create: { name: "Alice Johnson", email: "alice@example.com", passwordHash },
+    update: { name: "Alice Johnson", passwordHash, emailVerifiedAt: verifiedAt },
+    create: {
+      name: "Alice Johnson",
+      email: "alice@example.com",
+      passwordHash,
+      emailVerifiedAt: verifiedAt,
+    },
   });
   const bob = await prisma.user.upsert({
     where: { email: "bob@example.com" },
-    update: { name: "Bob Smith", passwordHash },
-    create: { name: "Bob Smith", email: "bob@example.com", passwordHash },
+    update: { name: "Bob Smith", passwordHash, emailVerifiedAt: verifiedAt },
+    create: {
+      name: "Bob Smith",
+      email: "bob@example.com",
+      passwordHash,
+      emailVerifiedAt: verifiedAt,
+    },
   });
 
   const roomData = [

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
-import { AppError } from "@/lib/http";
+import { AppError } from "@/lib/errors";
 
 const hash = (value: string) => crypto.createHash("sha256").update(value).digest("hex");
 
@@ -40,7 +40,16 @@ export async function currentUser() {
 
   const session = await prisma.session.findUnique({
     where: { tokenHash: hash(token) },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          emailVerifiedAt: true,
+        },
+      },
+    },
   });
 
   if (!session) return null;

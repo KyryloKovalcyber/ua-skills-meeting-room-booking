@@ -4,17 +4,16 @@ import { DateTime } from "luxon";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const OFFICE_TZ = "Europe/Kyiv";
-
 type Item = {
   id: string;
   title: string;
   startAt: string;
   endAt: string;
+  seriesId: string | null;
   room: { id: string; name: string; floor: number };
 };
 
-export function MyBookings() {
+export function MyBookings({ officeTimeZone }: { officeTimeZone: string }) {
   const router = useRouter();
   const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const [type, setType] = useState<"upcoming" | "past">("upcoming");
@@ -24,6 +23,8 @@ export function MyBookings() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [cancelTarget, setCancelTarget] = useState<Item | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   async function requestPage(targetPage: number, append = false) {
     append ? setLoadingMore(true) : setLoading(true);
@@ -52,22 +53,39 @@ export function MyBookings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
-  async function cancel(id: string) {
-    if (!window.confirm("Скасувати це бронювання?")) return;
+  useEffect(() => {
+    if (!cancelTarget) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !cancelling) setCancelTarget(null);
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [cancelTarget, cancelling]);
+
+  async function cancel(scope: "single" | "series") {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    setError("");
 
     try {
-      const response = await fetch(`/api/bookings/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/bookings/${cancelTarget.id}?scope=${scope}`, { method: "DELETE" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message ?? "Не вдалося скасувати бронювання.");
+
+      setCancelTarget(null);
       await requestPage(1, false);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Сервер недоступний.");
+    } finally {
+      setCancelling(false);
     }
   }
 
   function openInSchedule(item: Item) {
     const week = DateTime.fromISO(item.startAt, { zone: "utc" })
-      .setZone(OFFICE_TZ)
+      .setZone(officeTimeZone)
       .startOf("week")
       .toISODate();
     router.push(`/schedule?room=${encodeURIComponent(item.room.id)}&week=${encodeURIComponent(week ?? "")}`);
@@ -108,14 +126,17 @@ export function MyBookings() {
                   <button className="booking-main" onClick={() => openInSchedule(item)}>
                     <div className="datebox"><b>{start.toFormat("dd")}</b><span>{start.toFormat("LLL")}</span></div>
                     <div className="grow">
-                      <h3>{item.title}</h3>
+                      <h3>
+                        {item.title}
+                        {item.seriesId && <span className="series-badge">Щотижнева серія</span>}
+                      </h3>
                       <p>{item.room.name} · {item.room.floor} поверх</p>
                       <small>{start.toFormat("cccc, dd LLLL · HH:mm")}–{end.toFormat("HH:mm")} · {userTz}</small>
                     </div>
                     <span className="open-arrow" aria-hidden="true">→</span>
                   </button>
                   {type === "upcoming" && (
-                    <button className="danger" onClick={() => cancel(item.id)}>Скасувати</button>
+                    <button className="danger" onClick={() => setCancelTarget(item)}>Скасувати</button>
                   )}
                 </article>
               );
@@ -130,6 +151,32 @@ export function MyBookings() {
             </div>
           )}
         </>
+      )}
+
+      {cancelTarget && (
+        <div className="modal-backdrop" onMouseDown={() => !cancelling && setCancelTarget(null)}>
+          <div
+            className="modal cancel-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-dialog-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div>
+              <span className="eyebrow">СКАСУВАННЯ</span>
+              <h2 id="cancel-dialog-title">Скасувати бронювання?</h2>
+              <p className="muted">{cancelTarget.title}</p>
+            </div>
+
+            <div className="cancel-options">
+              <button className="danger" disabled={cancelling} onClick={() => void cancel("single")}>Лише цю зустріч</button>
+              {cancelTarget.seriesId && (
+                <button className="danger strong-danger" disabled={cancelling} onClick={() => void cancel("series")}>Усю майбутню серію</button>
+              )}
+              <button className="ghost" disabled={cancelling} onClick={() => setCancelTarget(null)}>Не скасовувати</button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );
