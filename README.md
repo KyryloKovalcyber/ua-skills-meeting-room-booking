@@ -1,7 +1,21 @@
 # Roomly — Meeting Room Booking
 
 Конкурсний проєкт **UA Skills 2026 / Meeting Room Booking**. Це невеликий офісний вебзастосунок для перегляду тижневого розкладу переговорних, створення власних бронювань і безпечного скасування тільки своїх бронювань.
+## Screenshots
 
+### Weekly schedule
+
+![Weekly schedule](docs/screenshots/schedule.png)
+
+### Create booking
+
+![Create booking](docs/screenshots/booking-create.png)
+
+### My bookings
+
+![My bookings](docs/screenshots/my-bookings.png)
+
+---
 ## Реалізовано
 
 ### Основні вимоги
