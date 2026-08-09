@@ -16,6 +16,8 @@ type Item = {
 export function MyBookings({ officeTimeZone }: { officeTimeZone: string }) {
   const router = useRouter();
   const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
+  const MONTH_LABELS = ["СІЧ", "ЛЮТ", "БЕР", "КВІ", "ТРА", "ЧЕР", "ЛИП", "СЕР", "ВЕР", "ЖОВ", "ЛИС", "ГРУ"];
   const [type, setType] = useState<"upcoming" | "past">("upcoming");
   const [items, setItems] = useState<Item[]>([]);
   const [page, setPage] = useState(1);
@@ -124,14 +126,19 @@ export function MyBookings({ officeTimeZone }: { officeTimeZone: string }) {
               return (
                 <article key={item.id}>
                   <button className="booking-main" onClick={() => openInSchedule(item)}>
-                    <div className="datebox"><b>{start.toFormat("dd")}</b><span>{start.toFormat("LLL")}</span></div>
+                    <div className="datebox">
+  <b>{start.toFormat("dd")}</b>
+  <span>{MONTH_LABELS[start.month - 1]}</span>
+</div>
                     <div className="grow">
                       <h3>
                         {item.title}
                         {item.seriesId && <span className="series-badge">Щотижнева серія</span>}
                       </h3>
                       <p>{item.room.name} · {item.room.floor} поверх</p>
-                      <small>{start.toFormat("cccc, dd LLLL · HH:mm")}–{end.toFormat("HH:mm")} · {userTz}</small>
+                      <small>
+  {WEEKDAY_LABELS[start.weekday - 1]}, {start.toFormat("dd.MM")} · {start.toFormat("HH:mm")}–{end.toFormat("HH:mm")} · {userTz}
+</small>
                     </div>
                     <span className="open-arrow" aria-hidden="true">→</span>
                   </button>

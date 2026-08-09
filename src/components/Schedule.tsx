@@ -31,6 +31,8 @@ function parseOfficeWeek(value: string | undefined, timeZone: string) {
   return DateTime.now().setZone(timeZone).startOf("week").startOf("day");
 }
 
+const WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
+
 export function Schedule({
   userId,
   emailVerified,
@@ -254,7 +256,7 @@ export function Schedule({
             className={mobileDay === index ? "active ghost" : "ghost"}
             onClick={() => setMobileDay(index)}
           >
-            {day.toFormat("ccc dd.MM")}
+            {WEEKDAY_LABELS[index]} {day.toFormat("dd.MM")}
           </button>
         ))}
       </div>
@@ -288,7 +290,7 @@ export function Schedule({
                 className={`day-head ${day.hasSame(DateTime.now().setZone(userTz), "day") ? "today" : ""} ${dayIndex !== mobileDay ? "mobile-hidden" : ""}`}
                 key={`${day.toISODate()}-${dayIndex}`}
               >
-                <b>{day.toFormat("ccc")}</b>
+                <b>{WEEKDAY_LABELS[dayIndex]}</b>
                 <span>{day.toFormat("dd.MM")}</span>
               </div>
             ))}
@@ -445,8 +447,7 @@ function BookingDialog({
           <span className="eyebrow">НОВЕ БРОНЮВАННЯ</span>
           <h2 id="booking-dialog-title">Забронювати кімнату</h2>
           <p className="muted">
-            {startUtc.setZone(userTz).toFormat("cccc, dd LLLL · HH:mm")} · {userTz}
-          </p>
+{WEEKDAY_LABELS[startUtc.setZone(userTz).weekday - 1]}, {startUtc.setZone(userTz).toFormat("dd.MM · HH:mm")} · {userTz}          </p>
         </div>
 
         <label>
