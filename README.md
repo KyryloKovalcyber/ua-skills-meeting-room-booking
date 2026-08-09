@@ -46,6 +46,7 @@
 - confirmation dialog перед скасуванням;
 - `.env.example` і конфігурація через env;
 - unit та DB-backed route integration tests;
+- 25 автоматичних тестів у 4 test-файлах;
 - GitHub Actions CI.
 
 ### Бонусні можливості
